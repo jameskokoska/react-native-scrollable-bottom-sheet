@@ -11,7 +11,9 @@ A simple bottom sheet popup modal that supports scrollable content for React Nat
 - Fully customizable
 - Fluid and native scrolling
 - Smooth swipe to dismiss and swipe to scroll
+- Tap background to dismiss
 - Auto adjusts size based on content within sheet
+- Immediate interactivity with background elements when dismissed 
 
 ## Installation
 
