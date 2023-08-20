@@ -93,6 +93,15 @@ interface BottomSheetProps {
    * Styles for the container of the bottom sheet
    */
   sheetBackgroundContainerStyles?: any;
+
+  /**
+   * The mass used for the closing/opening animation of the sheet
+   */
+  customSheetMass?: number;
+  /**
+   * The damping used for the closing/opening animation of the sheet
+   */
+  customSheetDamping?: number;
 }
 
 const BottomSheet = (props: BottomSheetProps) => {
@@ -225,8 +234,12 @@ const BottomSheet = (props: BottomSheetProps) => {
           >
             <Animated.View
               style={[styles.sheet, { height: height }, translateY]}
-              entering={SlideInDown.springify().mass(0.4).damping(100)}
-              exiting={SlideOutDown.springify().mass(0.4).damping(100)}
+              entering={SlideInDown.springify()
+                .mass(props.customSheetMass ?? 0.4)
+                .damping(props.customSheetDamping ?? 100)}
+              exiting={SlideOutDown.springify()
+                .mass(props.customSheetMass ?? 0.4)
+                .damping(props.customSheetDamping ?? 100)}
             >
               <ScrollView
                 ref={scrollViewRef}
