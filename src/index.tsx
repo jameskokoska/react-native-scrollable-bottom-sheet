@@ -102,6 +102,19 @@ interface BottomSheetProps {
    * The damping used for the closing/opening animation of the sheet
    */
   customSheetDamping?: number;
+
+  /**
+   * Defaults to enabled.
+   * Use reanimated entering and exiting animations instead of legacy animated values
+   * This can introduce errors with Tab.Navigator and unmounting if enabled.
+   * For example, if the navigator is popped and the exiting animation is played
+   * if the component is unmounted, it will cause the UI to become blank and
+   * unresponsive.
+   * More traditional animation values will be used if this is disabled, however
+   * lazy loading can no longer be used as the component will always be
+   * rendered, just below off screen.
+   */
+  useEnteringAndExitingAnimations?: boolean;
 }
 
 const BottomSheet = (props: BottomSheetProps) => {
@@ -109,7 +122,7 @@ const BottomSheet = (props: BottomSheetProps) => {
   const panRef = createRef();
   const scrollViewRef: React.RefObject<ScrollView> = useRef(null);
   const height = props.interactiveMaxHeight ?? Dimensions.get('window').height;
-  const offset = useSharedValue(0);
+  const offset = useSharedValue(height);
 
   // If the user is allowed to close the sheet
   // Set to true when the user is scrolled back to the top of the content
@@ -123,19 +136,37 @@ const BottomSheet = (props: BottomSheetProps) => {
 
   const closeSheet = useCallback(
     (updateOnChange: boolean) => {
-      offset.value = 0;
-      setOpen(false);
+      if (props.useEnteringAndExitingAnimations === false) {
+        offset.value = withSpring(height, {
+          damping: props.customSheetDamping ?? 400,
+          mass: props.customSheetMass ?? 0.4,
+        });
+      } else {
+        offset.value = 0;
+        setOpen(false);
+      }
       if (updateOnChange && props?.onVisibilityChange !== undefined) {
         props.onVisibilityChange(false);
       }
     },
-    [props, offset]
+    [props, offset, height]
   );
 
   const openSheet = useCallback(
     (updateOnChange: boolean) => {
-      offset.value = 0;
-      setOpen(true);
+      if (props.useEnteringAndExitingAnimations === false) {
+        offset.value = withSpring(0, {
+          damping: props.customSheetDamping ?? 400,
+          mass: props.customSheetMass ?? 0.4,
+        });
+        scrollViewRef.current?.scrollTo({
+          y: 0,
+          animated: false,
+        });
+      } else {
+        offset.value = 0;
+        setOpen(true);
+      }
       if (updateOnChange && props?.onVisibilityChange !== undefined) {
         props.onVisibilityChange(true);
       }
@@ -162,11 +193,23 @@ const BottomSheet = (props: BottomSheetProps) => {
   const onScroll = (event: {
     nativeEvent: { contentOffset: { y: number } };
   }) => {
-    if (event.nativeEvent.contentOffset.y <= 5 && offset.value <= 5) {
-      canClose = true;
-    } else {
-      if (startedClosing === false) {
+    if (props.useEnteringAndExitingAnimations === false) {
+      if (event.nativeEvent.contentOffset.y <= 5) {
+        canClose = true;
+      } else if (event.nativeEvent.contentOffset.y >= 5) {
         canClose = false;
+      } else {
+        if (startedClosing === false) {
+          canClose = false;
+        }
+      }
+    } else {
+      if (event.nativeEvent.contentOffset.y <= 5 && offset.value <= 5) {
+        canClose = true;
+      } else {
+        if (startedClosing === false) {
+          canClose = false;
+        }
       }
     }
   };
@@ -204,19 +247,26 @@ const BottomSheet = (props: BottomSheetProps) => {
 
   return (
     <>
-      {isOpen && (
+      {(isOpen || props.useEnteringAndExitingAnimations === false) && (
         <>
           <Animated.View
             style={[
               styles.backdrop,
-              ...(props.animateBackdropOpacityWithDrag === true
+              ...(props.animateBackdropOpacityWithDrag === true ||
+              props.useEnteringAndExitingAnimations === false
                 ? [opacity]
                 : [{ opacity: 0 }]),
             ]}
             pointerEvents="none"
-            entering={FadeIn}
+            entering={
+              props.useEnteringAndExitingAnimations === false
+                ? undefined
+                : FadeIn
+            }
             exiting={
-              props.animateBackdropOpacityWithDrag === true
+              props.useEnteringAndExitingAnimations === false
+                ? undefined
+                : props.animateBackdropOpacityWithDrag === true
                 ? undefined
                 : FadeOut
             }
@@ -234,12 +284,20 @@ const BottomSheet = (props: BottomSheetProps) => {
           >
             <Animated.View
               style={[styles.sheet, { height: height }, translateY]}
-              entering={SlideInDown.springify()
-                .mass(props.customSheetMass ?? 0.4)
-                .damping(props.customSheetDamping ?? 100)}
-              exiting={SlideOutDown.springify()
-                .mass(props.customSheetMass ?? 0.4)
-                .damping(props.customSheetDamping ?? 100)}
+              entering={
+                props.useEnteringAndExitingAnimations === false
+                  ? undefined
+                  : SlideInDown.springify()
+                      .mass(props.customSheetMass ?? 0.4)
+                      .damping(props.customSheetDamping ?? 100)
+              }
+              exiting={
+                props.useEnteringAndExitingAnimations === false
+                  ? undefined
+                  : SlideOutDown.springify()
+                      .mass(props.customSheetMass ?? 0.4)
+                      .damping(props.customSheetDamping ?? 100)
+              }
             >
               <ScrollView
                 ref={scrollViewRef}
